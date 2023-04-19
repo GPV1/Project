@@ -1,0 +1,12 @@
+name: Project
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python>3.5
+  - geopandas
+  - cartopy
+  - notebook
+  - rasterio
+  - pyepsg
+  - folium
