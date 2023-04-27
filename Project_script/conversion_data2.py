@@ -10,7 +10,7 @@ import sqlite3
 # import datafiles and sheetname. Necessary: database files PEG and Species order and input data
 dfBV = pd.read_excel('C:/GIS_Course/EGM722/Project/Data_files/PEG_BVOL2019_PJ.xlsx',sheet_name='Biovolume file')
 dfSpN = pd.read_excel('C:/GIS_Course/EGM722/Project/Data_files/Species_order_GPV.xlsx',sheet_name='Sheet1')
-SpecData = pd.read_excel('C:/GIS_Course/EGM722/Project/Data_files/Data_2018_GPV.xlsx', sheet_name='Sheet2')
+SpecData = pd.read_excel('C:/GIS_Course/EGM722/Project/Data_files/Data_2018_GPV.xlsx', sheet_name='Sheet1')
 test_data = pd.read_excel('C:/GIS_Course/EGM722/Project/Data_files/test_data.xlsx', sheet_name='data')
 
 
@@ -29,15 +29,16 @@ Classes = dfBV['Class']
 Order = dfBV['Order'].str.title()
 Genus = dfBV['Genus']
 Species = dfBV['Species']
-print(Species)
+Species_other = dfSpN['spec_name'].str.replace('_', ' ')
+Species_other_order = dfSpN['order']
+Species_other_group = dfSpN['group']
+All_Species = pd.concat([pd.Series(Species), pd.Series(Species_other)])
 
 
 #  defines dictionaries of different levels in taxonomy groups based on the PEG database
 SpGe = dict(zip(Species, Genus)) # species on genus level
 SpOr = dict(zip(Species, Order)) # species on order level
 SpCl = dict(zip(Species, Classes)) # species on class level
-
-
 
 
 
@@ -61,10 +62,7 @@ for index, row in dfBV.iterrows():
         else: # if the species name is already written in the dictionary, add the found biovolume values
             species_BV_dict[searchFor].append(row_info[25])
 
-
-
-
-
+# pprint.pprint(species_BV_dict)
 
 
 species_avg_BV_specieslevel = {}
@@ -98,38 +96,30 @@ SpOr_merge = {}
 # todo- Somehow get the species different in the species list and then add all the dicts together. Also fix the function
 # todo- for the bioconversion..
 
-SpecDiff = dfSpN['spec_name'].str.replace('_', ' ')
-Species = Species + SpecDiff
-print(Species)
 
+for spec, ord in zip(Species, Order):
+    # print(f"Processing species: {spec}, order: {ord}")
+    if ord not in SpOr_merge:
+        SpOr_merge[ord] = {spec: species_avg_BV_specieslevel.get(spec, int(0))}
+        # print(f"Adding new order: {ord}")
+    else:
+        SpOr_merge[ord][spec] = species_avg_BV_specieslevel.get(spec, int(0))
+        # print(f"Adding species to existing order: {ord}")
 
-    # if ord not in SpOr_merge:
-    #     SpOr_merge[ord] = {spec: species_avg_BV_specieslevel.get(spec, 0)}
-    # else:
-    #     SpOr_merge[ord] = species_avg_BV_specieslevel.get(spec, 0)
-
-# for spec, ord in zip(Species, Order):
-#     print(f"Processing species: {spec}, order: {ord}")
-#     if ord not in SpOr_merge:
-#         SpOr_merge[ord] = {spec: species_avg_BV_specieslevel.get(spec, 0)}
-#         print(f"Adding new order: {ord}")
-#     else:
-#         SpOr_merge[ord][spec] = species_avg_BV_specieslevel.get(spec, 0)
-#         print(f"Adding species to existing order: {ord}")
-
-pprint.pprint(SpOr_merge)
-
-
-
-# for spec, SpecDiff, ord in zip(Species, SpecDiff, Order):
-#     if ord not in SpOr_merge:
-#         SpOr_merge[ord] = {SpecDiff: species_avg_BV_specieslevel.get(spec, 0)} # create a new key value (genus) with the
-#         # corresponding species and biovolume nested as value.
-#     else:
-#         SpOr_merge[ord][SpecDiff] = species_avg_BV_specieslevel.get(spec, 0) # nest the species avg biovolume dictionary
-#         # for the corresponding order made in previous step
-#
 # pprint.pprint(SpOr_merge)
+
+other_species_dict = dict(zip(Species_other, Species_other_order))
+#pprint.pprint(other_species_dict)
+
+for sp, ord in other_species_dict.items():
+    if ord in SpOr_merge:
+        SpOr_merge[ord][sp] = other_species_dict.get(ord, 0)
+    else:
+        SpOr_merge[ord] = {sp: other_species_dict.get(ord, 0)}
+
+# pprint.pprint(SpOr_merge)
+
+
 
 SpOr_merge_BV_orderlevel = {}
 ''' This dictionary creates an average biovolume for each order, based on the nested species biovolume values.
@@ -140,39 +130,83 @@ SpOr_merge_BV_orderlevel = {}
     
     '''
 for order, species in SpOr_merge.items():
-   values_list = [biovolume for biovolume in species.values()] # create a list of biovolume values for all species in the order
+   values_list = species.values() # create a list of biovolume values for all species in the order
    avg_ord_BV = round(sum(values_list)/len(values_list), 4) # calculate the average biovolume for the order
    SpOr_merge_BV_orderlevel[order] = avg_ord_BV # store the average biovolume in the new dictionary
 
-# todo make another dictionary based on the species order file. It needs to set the order to the species name that is
-# todo - used in certain formats.
 
+# pprint.pprint(SpOr_merge_BV_orderlevel)
 
-pprint.pprint(SpOr_merge_BV_orderlevel)
-
-
-
-group_dict = {}
+SpOr_merge_BV_orderlevel_Group = {}
 ''' Creates the last dictionary needed for the biovolume conversion. This dictionary is an addition to the above dict
     since not all species are defined the same way (due to size classes etc). This dictionary will provide an addition
     in conversion to order level and in later stages to group the data in functional groups.
     '''
-SpecDiff = dfSpN['spec_name'].str.replace('_', ' ')
-OrdDiff = dfSpN['order']
-Group = dfSpN['group']
-SpecName_different_Format = dict(zip(SpecDiff, OrdDiff))
-for i in range(len(Group)):
-    group = Group[i]
-    orderDiff = OrdDiff[i]
-    species = SpecDiff[i]
-    if group not in group_dict:
-        group_dict[group] = {orderDiff: [species]}
+GroupOrder = dict(zip(Species_other_order, Species_other_group))
+
+for order, biovolume in SpOr_merge_BV_orderlevel.items():
+    for orderdiff, group in GroupOrder.items():
+        if orderdiff == order:
+            if group in SpOr_merge_BV_orderlevel_Group:
+                SpOr_merge_BV_orderlevel_Group[group][order] = biovolume
+            else:
+                SpOr_merge_BV_orderlevel_Group[group] = {order: biovolume}
+
+# pprint.pprint(SpOr_merge_BV_orderlevel_Group)
+
+
+# An overview of all dictionaries and their content:
+''' Overview of all dictonaries and their functions:
+
+- species_BV_dict:                  Species from the PEG database with their corresponding biovolume values (multiple 
+                                    values per species). 
+                                    * {Keys: Species, values: biovolume}.
+                                     
+- species_avg_BV_specieslevel:      Average biovolume for species from the PEG database. 
+                                    * {Keys: Species, values: average biovolume per species}.
+
+- SpOr_merge:                       The average biovolume per species is nested in the corresponding order. In this 
+                                    dictionary also the species from the database SpeciesOrder are added 
+                                    (other_species_dict) since these species are not found in the PEG database (The 
+                                    biovolume for these species can only be found on order level).
+                                    * {Keys: Order {Keys: Species, values: biovolume}}.
+                                    
+- SpOr_merge_BV_orderlevel:         For each order the average biovolume is based on the species values inside this 
+                                    order.
+                                    * { Keys: order, values: average biovolume per order}
+                                        
+- SpOr_merge_BV_orderlevel_Group:   The functional groups (diatom, dionflagellates, flagellates and other) are added to 
+                                    the different taxonomy orders.
+                                    * {Keys: group {keys: order, values: biovolume per order}}
+
+'''
+
+# todo- tomorrow: create function from below. This is now working!! However, the dataset provided has several samples
+# todo- that makes that there are doublings inside the outcomes. Later this will be used to calculate the group average per year.
+# todo- Work on the dataset input, to later calculate the average biovolume per sample and year
+# todo- insert in function that the output is printed in an excel file.
+
+dataset = SpecData  # define the dataset (the workbook sheet of the data to be converted)
+datasetColSpec = 'spec_name'  # Define the column in the sheet where the species name data can be found (string!)
+dataTobBeConverted = 'conc_cells_per_L'
+
+
+datasetColSpec = dataset[datasetColSpec]
+for searchFor in datasetColSpec:
+    # searchFor = datasetColSpec[i]
+    if searchFor in species_avg_BV_specieslevel:
+        BV = round(species_avg_BV_specieslevel[searchFor] * dataset[dataTobBeConverted][0]/1e+9, 4)
+        print(f"{searchFor} found in PEG database. The biovolume for {searchFor} is {BV} ml")
     else:
-        if orderDiff not in group_dict[group]:
-            group_dict[group][orderDiff] = [species]
+        for order, species_dict in SpOr_merge.items():
+            # order_key = species_dict.keys()
+            if searchFor in species_dict:
+                searchFor_order = order
+                BV_order = round(SpOr_merge_BV_orderlevel[searchFor_order] * dataset[dataTobBeConverted][0] / 1e+9, 4)
+                print(f"Biovolume of {searchFor} found at order level ({order}): {BV_order} ml")
+                break
         else:
-            group_dict[group][orderDiff].append(species)
-# pprint.pprint(group_dict)
+            print(f"{searchFor} not found in PEG database at any taxonomy level")
 
 
 
@@ -180,47 +214,50 @@ for i in range(len(Group)):
 
 
 
-def BiovolumeSpecLevel(dataset, datasetColSpec, dataTobBeConverted):
-    datasetColSpec = dataset[datasetColSpec]
-    species = []
-    order = []
-    result_spec = []
-    result_ord = []
-    for i in range(len(datasetColSpec)):
-        searchFor = datasetColSpec[i]
-        try:
-            print(searchFor in group_dict)
-            if searchFor in group_dict:
+# def BiovolumeSpecLevel(dataset, datasetColSpec, dataTobBeConverted):
+#     datasetColSpec = dataset[datasetColSpec]
+#     species = []
+#     order = []
+#     result_spec = []
+#     result_ord = []
+#     for i in range(len(datasetColSpec)):
+#         searchFor = datasetColSpec[i]
+#         print(searchFor)
+#         try:
+#             searchFor in species_avg_BV_specieslevel.items()
+#             searchFor in SpOr_merge_BV_orderlevel
+#         except KeyError:
+#             print('Match not found in databases')
+#     if len(result_spec) > 0:
+#         df = pd.DataFrame({
+#             'Species': species,
+#             'Biovolume (ml)': result_spec,
+#             'Order': order,
+#             'Biovolume Genus (ml)': result_ord})
+#         return df
+#
+# df = BiovolumeSpecLevel(
+#         dataset=SpecData,  # define the dataset (the workbook sheet of the data to be converted)
+#         datasetColSpec='spec_name',  # Define the column in the sheet where the species name data can be found (string!)
+#         dataTobBeConverted='conc_cells_per_L')  # define the column in the sheet where the data to be converted to biovolume
+#         # can be found (string!)
 
-                orderDiff = group_dict[searchFor]
-                species.append(searchFor)
-                print(f"Match found: {searchFor}")
-                if searchFor in species_avg_BV_specieslevel:
-                    BV = species_avg_BV_specieslevel[searchFor] * dataset[dataTobBeConverted][0] / 1e+9
-                    result_spec.append(BV)
-                else:
-                    order.append(orderDiff)
-                    print(ord_searchFor)
-                    BV_ord_searchFor = SpOr_merge_BV_orderlevel[ord_searchFor] * dataset[dataTobBeConverted][0] / 1e+9
-                    result_ord.append(BV_ord_searchFor)
-                    print(f"Match not found at species level for species {searchFor}, biovolume caluclated on Order level")
-        except KeyError:
-            print('Match not found in databases')
-        #else:
-           # print('No match found in databases')
-    if len(result_spec) > 0:
-        df = pd.DataFrame({
-            'Species': species,
-            'Biovolume (ml)': result_spec,
-            'Order': order,
-            'Biovolume Genus (ml)': result_ord})
-        return df
 
-df = BiovolumeSpecLevel(
-        dataset=SpecData,  # define the dataset (the workbook sheet of the data to be converted)
-        datasetColSpec='spec_name',  # Define the column in the sheet where the species name data can be found (string!)
-        dataTobBeConverted='conc_cells_per_L')  # define the column in the sheet where the data to be converted to biovolume
-        # can be found (string!)
+# if df is not None:
+#     #print(df)
+# else:
+#     print('No data found')
+
+
+# creates an excel file with the data from function 1.
+# with pd.ExcelWriter('Biovolume_test.xlsx') as writer:
+#     df_empty = pd.DataFrame()
+#     df_empty.to_excel(writer, sheet_name='Sheet1', index = False)
+#     df.to_excel(writer, sheet_name='Biovolume', index=False)
+
+
+
+
 
 
 # def BiovolumeSpecLevel(dataset, datasetColSpec, dataTobBeConverted):
@@ -265,24 +302,6 @@ df = BiovolumeSpecLevel(
 #     dataTobBeConverted= 'conc_cells_per_L')  # define the column in the sheet where the data to be converted to biovolume
 #                                              # can be found (string!)
 
-if df is not None:
-    print(df)
-else:
-    print('No data found')
-
-
-# creates an excel file with the data from function 1.
-with pd.ExcelWriter('Biovolume_test.xlsx') as writer:
-    df_empty = pd.DataFrame()
-    df_empty.to_excel(writer, sheet_name='Sheet1', index = False)
-    df.to_excel(writer, sheet_name='Biovolume', index=False)
-
-
-print('--------BREAK--------')
-
-
-# todo CLEAN THIS THING UP! And make a df for function two. Also add the species name in df 1. Maybe combine dataframe
-# todo-  of the two functions. Work on conversion to Carbon. Oh and fix the doubling thing in the functions..
 
 ''' function 2: conversion of gathered data to biovolume for species NOT in database. Run this function always to be
 sure all data is gathered'''
