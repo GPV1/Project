@@ -1,19 +1,16 @@
+import pandas as pd
 import openpyxl
-from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font
 from openpyxl.chart import BarChart, Reference
-import pandas as pd
-import pprint
+import os
 
-# import datafiles and sheetname. Necessary: database files PEG and Species order and input data
+# import datafiles and sheetname. Necessary: database files PEG, Species order and input data. Provide the correct path
+# to the datafiles in the repository.
 dfBiovolume = pd.read_excel('C:/GIS_Course/EGM722/Project/Data_files/PEG_BVOL2019_PJ.xlsx', sheet_name='Biovolume file')
 dfSpeciesOrder = pd.read_excel('C:/GIS_Course/EGM722/Project/Data_files/Species_order_GPV.xlsx', sheet_name='Sheet1')
 InputData = pd.read_excel('C:/GIS_Course/EGM722/Project/Data_files/Data_2018_GPV.xlsx', sheet_name='Sheet1')
 
-'''  preperation of database by forming dictionaries for taxonomy groups, creating averages of multiple biovolume
- values per species and usage of dictionaries in functions  '''
-
-#  defines the columns in the database for the taxonomy groups
+# Defines the columns in the database for the taxonomy groups
 Divisions = dfBiovolume['Division']
 Classes = dfBiovolume['Class']
 Order = dfBiovolume['Order'].str.title()  # Order names in PEG database are in capitals
@@ -22,15 +19,21 @@ Species = dfBiovolume['Species']
 Species_other = dfSpeciesOrder['spec_name'].str.replace('_', ' ')  # Species names in SpeciesOrder database have _
 Species_other_order = dfSpeciesOrder['order']
 Species_other_group = dfSpeciesOrder['group']
-All_Species = pd.concat([pd.Series(Species), pd.Series(Species_other)])
 
+# To avoid Key errors and lower return of species in the output, certain signs or characters are removed.
 InputData['spec_name'] = InputData['spec_name'].str.replace('.', '')
 InputData['spec_name'] = InputData['spec_name'].str.replace('<', '')
 InputData['spec_name'] = InputData['spec_name'].str.replace('>', '')
 InputData['spec_name'] = InputData['spec_name'].str.replace('~', '')
+InputDataAmount = len(InputData['spec_name'])
+
+# to let the user know that the input data is being processed.
+print(f"InputData being processed, the amount of species to search for: {InputDataAmount}")
+print('......')
 
 '----------------------------------------------------------------------------------------------------------------------'
-''' Overview of all dictonaries and their functions:
+''' In the following section the dictionaries are created. To create overview, already the function and content of all 
+dictionaries is given:
 
 - 1. species_Biovolume_dict:                    Species from the PEG database with their corresponding biovolume values 
                                                 (multiple values per species). 
@@ -89,6 +92,7 @@ for index, row in dfBiovolume.iterrows():
         else:  # if the species name is already written in the dictionary, add the found biovolume values
             species_Biovolume_dict[searchFor].append(row_info[25])
 
+
 '----------------------------------------------------------------------------------------------------------------------'
 
 species_avg_Biovolume_dict = {}
@@ -102,7 +106,7 @@ species_avg_Biovolume_dict = {}
     '''
 for searchFor, values_list in species_Biovolume_dict.items():  # goes trough the species_BV_dict made in previous step
     avg_BV = round(sum(values_list) / len(values_list), 4)
-    species_avg_Biovolume_dict[searchFor] = avg_BV
+    species_avg_Biovolume_dict[searchFor] = avg_BV  # appends the species name with the averaged biovolume
 
 '----------------------------------------------------------------------------------------------------------------------'
 
@@ -122,26 +126,34 @@ Order_Species_avg_Biovolume_dict = {}
     - {Keys: Order {Keys: Species, values: biovolume}}.
     
     '''
-Order_Species_avg_Biovolume_dict_unadapted = {}
+Order_Species_avg_Biovolume_dict_unadapted = {}  # this dictionary contains orders undefined and serves as a in between
+                                                 # step
 
-for spec_name, ord_name in zip(Species, Order):
-    if ord_name not in Order_Species_avg_Biovolume_dict_unadapted:
+for spec_name, ord_name in zip(Species, Order):  # goes through Species and Order names
+    if ord_name not in Order_Species_avg_Biovolume_dict_unadapted:  # append the order name if it is not in the dict and
+        # add the species name and the corresponding biovolume from species average biovolume dict.
         Order_Species_avg_Biovolume_dict_unadapted[ord_name] = {spec_name: species_avg_Biovolume_dict.get(spec_name,
                                                                                                           int(0))}
+        # if the species is not found in the species average biovolume dict a 0 is assigned as biovolume
     else:
         Order_Species_avg_Biovolume_dict_unadapted[ord_name][spec_name] = species_avg_Biovolume_dict.get(spec_name,
                                                                                                          int(0))
+        # if the species name is already in the dictionary just add the corresponding biovolume.
 
 other_species_dict = dict(zip(Species_other, Species_other_order))  # creates a dictionary based on the Species_order
 # database.
 
 for spec, order_name in other_species_dict.items():
-    if order_name in Order_Species_avg_Biovolume_dict_unadapted:
-        Order_Species_avg_Biovolume_dict_unadapted[order_name][spec] = other_species_dict.get(order_name, 0)
+    if order_name in Order_Species_avg_Biovolume_dict_unadapted:  # if the order is already in the dictionary
+        Order_Species_avg_Biovolume_dict_unadapted[order_name][spec] = species_avg_Biovolume_dict.get(spec, 0)  # append
+        # the species from the other species dictionary to the corresponding order in the order species average biovol
+        # dictionary.
     else:
-        Order_Species_avg_Biovolume_dict_unadapted[order_name] = {spec: other_species_dict.get(order_name, 0)}
+        Order_Species_avg_Biovolume_dict_unadapted[order_name] = {spec: species_avg_Biovolume_dict.get(spec, 0)}
+        # if order not in dictionary add the order and nest the species names and retrieved biovolume with the matching
+        # order.
 
-for order, biovolume in Order_Species_avg_Biovolume_dict_unadapted.items():
+for order, biovolume in Order_Species_avg_Biovolume_dict_unadapted.items():  # assign names to empty dictionary keys
     order_key = str(order)
     if order_key == 'nan':
         order_key = 'Undefined order'
@@ -150,8 +162,6 @@ for order, biovolume in Order_Species_avg_Biovolume_dict_unadapted.items():
     else:
         order_key = order
     Order_Species_avg_Biovolume_dict[order_key] = biovolume
-
-# pprint.pprint(Order_Species_avg_Biovolume_dict)
 
 
 '----------------------------------------------------------------------------------------------------------------------'
@@ -167,10 +177,8 @@ Order_avg_Biovolume_dict = {}
     '''
 for order, species in Order_Species_avg_Biovolume_dict.items():
     values_list = species.values()  # create a list of biovolume values for all species in the order
-    avg_ord_BV = round(sum(values_list) / len(values_list), 4)  # calculate the average biovolume for the order
+    avg_ord_BV = round(sum(values_list) / len(values_list), 4)
     Order_avg_Biovolume_dict[order] = avg_ord_BV  # store the average biovolume in the new dictionary
-
-# pprint.pprint(Order_avg_Biovolume_dict)
 
 '----------------------------------------------------------------------------------------------------------------------'
 
@@ -186,17 +194,20 @@ Class_Species_avg_Biovolume = {}
     - {Keys: Class {Keys: species, values: biovolume per species}}  
 
     '''
-SpeciesClass = dict(zip(Species, Classes))  # species on class level
+SpeciesClass = dict(zip(Species, Classes))  # dictionary for species on class level
 
 for order, spec in Order_Species_avg_Biovolume_dict.items():
-    for sp, value in spec.items():
+    for sp, value in spec.items():  # goes through the biovolume values of the species in the ord spec biovol dictionary
         for species, Cl in SpeciesClass.items():
-            if species == sp:
-                class_dict = Class_Species_avg_Biovolume.get(Cl, {})
-                class_dict[sp] = value
-                Class_Species_avg_Biovolume[Cl] = class_dict
+            if species == sp:  # if the species in the species class dictionary is the same as the species in the ord
+                # spec avg biovol dict
+                class_dict = Class_Species_avg_Biovolume.get(Cl, {})  # append the class and create a empty dictionary
+                # to add the species and biovolumes
+                class_dict[sp] = value  # creates a dictionary in which the species is added as key and the biovolume as
+                # value
+                Class_Species_avg_Biovolume[Cl] = class_dict  # append the previous made dict to the corresponding class
 
-# pprint.pprint(Class_Species_avg_Biovolume)
+# print(Class_Species_avg_Biovolume)
 
 '----------------------------------------------------------------------------------------------------------------------'
 Class_Order_dict = {}
@@ -211,39 +222,37 @@ Class_Order_dict = {}
     
     '''
 
-OrderClass = dict(zip(Order, Classes))
+OrderClass = dict(zip(Order, Classes)) # creates a dictionary for order and classes
 
 for order, biovolume in Order_avg_Biovolume_dict.items():
     try:
         for ord_name in OrderClass:
-            classes = OrderClass[order]
-            if classes in Class_Order_dict:
-                Class_Order_dict[classes][order] = biovolume
+            classes = OrderClass[order]  # retrieves the class corresponding to the order from the order class dict
+            if classes in Class_Order_dict:  # if the class is already in the class order dictionary
+                Class_Order_dict[classes][order] = biovolume  # add order as a key and the biovolume as value
             else:
-                Class_Order_dict[classes] = {order: biovolume}
-    except KeyError:
+                Class_Order_dict[classes] = {order: biovolume} # if not in the dict add a new key - value
+    except KeyError:  # since in the order dictionary there are some undefined orders
         continue
-
-# pprint.pprint(Class_Order_dict)
 
 '----------------------------------------------------------------------------------------------------------------------'
 Class_avg_Biovolume = {}
 ''' 7. Creates a dictionary in which the biovolume is averaged per class.
 
-    - A new list is made from the biovolume values of the order from the class order dictionary, after which the average
+    - A new list is made from the biovolume values of the species from the spec order dictionary, after which the average
       is calculated and rounded by 4 decimals.
     - The average biovolume is added per class. 
     - {keys: Class, value: biovolume per class}
 
     '''
-for clss, orders in Class_Order_dict.items():
+for clss, spec in Class_Species_avg_Biovolume.items():
     biovolumes = []
-    for values in orders.values():
+    for values in spec.values():
         biovolumes.append(values)
     avg_biovolume = round(sum(biovolumes) / len(biovolumes), 4)
     Class_avg_Biovolume[clss] = avg_biovolume
 
-# pprint.pprint(Class_avg_Biovolume)
+# print(Class_avg_Biovolume)
 '----------------------------------------------------------------------------------------------------------------------'
 
 Group_Order_Species_avg_Biovolume_dict = {}
@@ -258,23 +267,26 @@ Group_Order_Species_avg_Biovolume_dict = {}
     - In the second step the species corresponding to the order are added. 
     - {Keys: group {keys: order, values: biovolume per species}}
     '''
-GroupOrder = dict(zip(Species_other_order, Species_other_group))
+GroupOrder = dict(zip(Species_other_order, Species_other_group))  # creates a dictionary of orders and groups from
+# the Species_Order database.
 
 for order, biovolume in Order_avg_Biovolume_dict.items():
     for orderdiff, group in GroupOrder.items():
-        if orderdiff == order:
-            if group in Group_Order_Species_avg_Biovolume_dict:
-                Group_Order_Species_avg_Biovolume_dict[group][order] = biovolume
+        if orderdiff == order:  # if the order in the order_group dict is the same as the order in the order biovol dict
+            if group in Group_Order_Species_avg_Biovolume_dict:  # if the group is already in the new dictionary
+                Group_Order_Species_avg_Biovolume_dict[group][order] = biovolume  # append the group, order and the
+                # biovolume
             else:
-                Group_Order_Species_avg_Biovolume_dict[group] = {order: biovolume}
+                Group_Order_Species_avg_Biovolume_dict[group] = {order: biovolume}  # if not in dictionary add the order
+                # and biovolume as a new key-value entry.
 
-# Nest the species corresponding to the order in the SpOr_merge_BV_orderlevel_Group dictionary
+# Nest the species corresponding to the order in the Group_Order_Species_avg_Biovolume dictionary
 for group, order in Group_Order_Species_avg_Biovolume_dict.items():
     for ord_name, spec in Order_Species_avg_Biovolume_dict.items():
-        if ord_name in order:
+        if ord_name in order:  # if orders are equal add the species with their biovolumes to the dictionary
             Group_Order_Species_avg_Biovolume_dict[group][ord_name] = spec
 
-# pprint.pprint(Group_Order_Species_avg_Biovolume_dict)
+# print(Group_Order_Species_avg_Biovolume_dict)
 '----------------------------------------------------------------------------------------------------------------------'
 ''' (To avoid scrolling back up) Overview of all dictonaries and their functions:
 
@@ -316,31 +328,48 @@ for group, order in Group_Order_Species_avg_Biovolume_dict.items():
 
 
 def BiovolumeSpeciesLevel(ID_col_name, ID_data, Species_col_name, Species_data, Conc_col_name, Conc_data):
+    '''
+    This function converts the cell concentration (cells per liter) to a biovolume for each input species at taxonomy
+    species level.
+
+    function arguments:
+    - ID_col_name: name for the column for the species sample ID or other ID that will be created in the output.
+    - ID_data: The column in the input dataframe where the ID can be found.
+    - Species_col_name: name for the column for the species name that will be created in the output.
+    - Species_data: the column in the input dataframe where the species names can be found.
+    - Conc_col_name: name for the column for the concentation of cells per liter that will be created in the output.
+    - Conc_data: the column in the input dataframe where the concentration of cells per liter data can be found.
+
+    A dataframe containing the input sample ID, species name, group, cell concentration and calculated biovolume is
+    returned.
+
+    '''
     inputdata_dataframe = pd.DataFrame({ID_col_name: ID_data, Species_col_name: Species_data, Conc_col_name: Conc_data})
+    # Makes empty lists to append the found data to
     sample_id = []
     species_bsl = []
     result_spec = []
     concentration = []
-    group_bsl = []
+    group_bsl = []  # bsl stands for biovolume species level
     for index, row in inputdata_dataframe.iterrows():
+        # iterates over the ID, the species to search for and the cell concentration
         ID = row[ID_col_name]
         searchFor = row[Species_col_name]
         Conc = row[Conc_col_name]
-        if searchFor in species_avg_Biovolume_dict:
+        if searchFor in species_avg_Biovolume_dict:  # look for the species at species level
             for group, order in Group_Order_Species_avg_Biovolume_dict.items():
-                for ord, spec in order.items():
-                    if searchFor in spec:
-                        BV = round(species_avg_Biovolume_dict[searchFor] * Conc / 1e+9, 5)
-                        if searchFor not in species_bsl:
-                            sample_id.append(ID)
-                            species_bsl.append(searchFor)
-                            concentration.append(round(Conc, 2))
-                            print(f"{searchFor} found in PEG database. The biovolume for {searchFor} is {BV} ml")
-                            result_spec.append(BV)
-                            group_bsl.append(group)
-        else:
-            print(f"{searchFor} not found in PEG database at any taxonomy level")
-    if len(result_spec) > 0.0:
+                for ord, spec in order.items(): # loops through the species in the group order species dict
+                    if searchFor in spec: # to later assign the right functional group
+                        BV = round(species_avg_Biovolume_dict[searchFor] * Conc / 1e+9, 5) # biovolume * cell conc
+                        # append all found data to the empty lists
+                        sample_id.append(ID)
+                        species_bsl.append(searchFor)
+                        concentration.append(round(Conc, 2))
+                        result_spec.append(BV)
+                        group_bsl.append(group)
+        else:  # if not found the species will be looked up at the next functions
+            continue
+    if len(result_spec) > 0:  # to avoid printing an empty dataframe in case something went wrong
         df = pd.DataFrame({
             ID_col_name: sample_id,
             Species_col_name: species_bsl,
@@ -351,9 +380,9 @@ def BiovolumeSpeciesLevel(ID_col_name, ID_data, Species_col_name, Species_data, 
         return df
 
 
-df = BiovolumeSpeciesLevel(  # define the column name and data of the dataset (InputData) to be converted below:
+df_biovol_species = BiovolumeSpeciesLevel( # define the column name and data of the dataset (InputData) to be converted:
 
-    ID_col_name='ID',  # If there is an ID for the sample, name this column for in the output.
+    ID_col_name='ID',  # If there is an ID for the sample, name this column for in the output (string).
     ID_data=InputData['sample_ID'],  # define in the input data in which column (str(header)) the ID data can be found.
     Species_col_name='Species',  # name the column header for species data in the output.
     Species_data=InputData['spec_name'],  # define in the input data in which column the species data can be found.
@@ -366,37 +395,54 @@ df = BiovolumeSpeciesLevel(  # define the column name and data of the dataset (I
 # '----------------------------------------------------------------------------------------------------------------------'
 # #
 def BiovolumeOrderLevel(ID_col_name, ID_data, Species_col_name, Species_data, Conc_col_name, Conc_data):
+    '''
+       This function converts the cell concentration (cells per liter) to a biovolume for each input species at taxonomy
+       order level. It will check if there is not already a result returned at species level to avoid doubling.
+
+       function arguments:
+       - ID_col_name: name for the column for the species sample ID or other ID that will be created in the output.
+       - ID_data: The column in the input dataframe where the ID can be found.
+       - Species_col_name: name for the column for the species name that will be created in the output.
+       - Species_data: the column in the input dataframe where the species names can be found.
+       - Conc_col_name: name for the column for the concentation of cells per liter that will be created in the output.
+       - Conc_data: the column in the input dataframe where the concentration of cells per liter data can be found.
+
+       A dataframe containing the input sample ID, species name, group, cell concentration and calculated biovolume is
+       returned.
+
+       '''
     inputdata_dataframe = pd.DataFrame({ID_col_name: ID_data, Species_col_name: Species_data, Conc_col_name: Conc_data})
+    # Makes empty lists to append the found data to
     sample_id = []
     species_bol = []
     result_ord = []
     concentration = []
-    group_bol = []
+    group_bol = []  # bol stands for biovolume order level
     for index, row in inputdata_dataframe.iterrows():
+        # iterates over the ID, the species to search for and the cell concentration
         ID = row[ID_col_name]
         searchFor = row[Species_col_name]
         Conc = row[Conc_col_name]
-        if searchFor not in species_avg_Biovolume_dict:
-            for ord, species_dict in Order_Species_avg_Biovolume_dict.items():
-                if searchFor in species_dict:
-                    searchFor_order = ord
+        if searchFor not in species_avg_Biovolume_dict:  # to avoid double output and only check not found species in
+            # previous function
+            for ord, species_dict in Order_Species_avg_Biovolume_dict.items():  # loop through the dict at order level
+                if searchFor in species_dict:  # if species is found in the dictionary
+                    searchFor_order = ord  # get the order and calculate the biovolume at order level
                     BV_order = round(Order_avg_Biovolume_dict[searchFor_order] * Conc / 1e+9, 5)
-                    # print(f"Biovolume of {searchFor} found at order level ({ord}): {BV_order} ml")
-                    if BV_order > 0.0:
+                    if BV_order > 0.0:  # since some orders do not have a biovolume, these will be searched for at class
+                        # level
+                        # append all found data to the empty lists
                         sample_id.append(ID)
                         species_bol.append(searchFor)
                         concentration.append(round(Conc, 2))
                         result_ord.append(BV_order)
                         for ord in Group_Order_Species_avg_Biovolume_dict.values():
-                            if searchFor_order in ord:
+                            if searchFor_order in ord:  # find the corresponding functional group for each species
                                 group_bol.append(group)
-                    elif BV_order == 0.0:
+                    elif BV_order == 0.0:  # ignore the orders that return 0
                         continue
-                        # print(f"See for biovolume for species {searchFor} class level")
                     break
-                    # else:
-                    #      print(f"Species {searchFor} biovolume not found at species and order level")
-    if len(result_ord) > 0:
+    if len(result_ord) > 0:   # to avoid printing an empty dataframe in case something went wrong
         df2 = pd.DataFrame({
             ID_col_name: sample_id,
             Species_col_name: species_bol,
@@ -407,7 +453,7 @@ def BiovolumeOrderLevel(ID_col_name, ID_data, Species_col_name, Species_data, Co
         return df2
 
 
-df2 = BiovolumeOrderLevel(  # define the column name and data of the dataset (InputData) to be converted below:
+df_biovol_order = BiovolumeOrderLevel(  # define the column name and data of the dataset (InputData) to be converted:
 
     ID_col_name='ID',  # If there is an ID for the sample, name this column for in the output.
     ID_data=InputData['sample_ID'],  # define in the input data in which column (str(header)) the ID data can be found.
@@ -420,13 +466,31 @@ df2 = BiovolumeOrderLevel(  # define the column name and data of the dataset (In
 
 
 def BiovolumeClassLevel(ID_col_name, ID_data, Species_col_name, Species_data, Conc_col_name, Conc_data):
+    '''
+        This function converts the cell concentration (cells per liter) to a biovolume for each input species at
+        taxonomy class level.
+
+        function arguments:
+        - ID_col_name: name for the column for the species sample ID or other ID that will be created in the output.
+        - ID_data: The column in the input dataframe where the ID can be found.
+        - Species_col_name: name for the column for the species name that will be created in the output.
+        - Species_data: the column in the input dataframe where the species names can be found.
+        - Conc_col_name: name for the column for the concentation of cells per liter that will be created in the output.
+        - Conc_data: the column in the input dataframe where the concentration of cells per liter data can be found.
+
+        A dataframe containing the input sample ID, species name, group, cell concentration and calculated biovolume is
+        returned.
+
+    '''
     inputdata_dataframe = pd.DataFrame({ID_col_name: ID_data, Species_col_name: Species_data, Conc_col_name: Conc_data})
+    # Makes empty lists to append the found data to
     sample_id = []
     species_bcl = []
     concentration = []
     result_class = []
-    group_bcl = []
+    group_bcl = []  # stands for biovolume class level
     for index, row in inputdata_dataframe.iterrows():
+        # iterates over the ID, the species to search for and the cell concentration
         ID = row[ID_col_name]
         searchFor = row[Species_col_name]
         Conc = row[Conc_col_name]
@@ -435,26 +499,22 @@ def BiovolumeClassLevel(ID_col_name, ID_data, Species_col_name, Species_data, Co
                 if searchFor == spec:
                     searchFor_order = ord
                     BV_order = round(Order_avg_Biovolume_dict[searchFor_order] * Conc / 1e+9, 5)
+                    # calculates the biovolume at order level and checks if this was returned as 0
                     if BV_order == 0:
-                        for cls in Class_avg_Biovolume:
+                        for cls in Class_avg_Biovolume:  # If so the biovolume will be calculated at class level
+                            searchFor_Class = cls
+                            BV_Class = round(Class_avg_Biovolume[searchFor_Class] * Conc / 1e+9, 5)
+                            # appends all the found data to the empty lists
                             sample_id.append(ID)
                             concentration.append(round(Conc, 2))
                             species_bcl.append(searchFor)
-                            searchFor_Class = cls
-                            BV_Class = round(Class_avg_Biovolume[searchFor_Class] * Conc / 1e+9, 5)
-                            # print(f"Biovolume of {searchFor} found at class level ({cls}): {BV_Class} ml")
                             result_class.append(BV_Class)
                             for group, Or in Group_Order_Species_avg_Biovolume_dict.items():
-                                for o in Or.keys():
+                                for o in Or.keys():  # find the corresponding functional group for the species
                                     if o == ord:
                                         group_bcl.append(group)
                             break
-                        break
-                    break
-                break
-                # else:
-                #      print(f"Species {searchFor} biovolume not found at species and order level")
-    if len(result_class) > 0:
+    if len(result_class) > 0:  # to avoid printing an empty dataframe in case something went wrong
         df3 = pd.DataFrame({
             ID_col_name: sample_id,
             Species_col_name: species_bcl,
@@ -465,7 +525,7 @@ def BiovolumeClassLevel(ID_col_name, ID_data, Species_col_name, Species_data, Co
         return df3
 
 
-df3 = BiovolumeClassLevel(  # define the column name and data of the dataset (InputData) to be converted below:
+df_biovol_class = BiovolumeClassLevel(  # define the column name and data of the dataset (InputData) to be converted:
 
     ID_col_name='ID',  # If there is an ID for the sample, name this column for in the output.
     ID_data=InputData['sample_ID'],  # define in the input data in which column (str(header)) the ID data can be found.
@@ -475,97 +535,132 @@ df3 = BiovolumeClassLevel(  # define the column name and data of the dataset (In
     Conc_data=InputData['conc_cells_per_L']  # define in the input data in which column the conc. data can be found.
 )
 
-if df is not None:
-    print(df)
-elif df2 is not None:
-    print(df2)
-elif df3 is not None:
-    print(df3)
+
+# To show that the functions worked or to show that something went wrong
+if df_biovol_species is not None:
+    print('Match found in species dictionaries')
+if df_biovol_order is not None:
+    print('Match found in order dictionaries')
+if df_biovol_class is not None:
+    print('Match found in class dictionaries')
 else:
-    print('No data found')
+    print('No match found in dictionaries, check input data')
+
 '----------------------------------------------------------------------------------------------------------------------'
 
-#  creates an excel file with the data found at species (df), order (df2) and class level (df3).
+#  creates an Excel file with the data found in the functions for species (df_biovol_species), order (df_biovol_order)
+#  and class level (df_biovol_class).
 
 with pd.ExcelWriter('Biovolume_test.xlsx') as writer:
-    df.to_excel(writer,
-                sheet_name='Biovolume Species',
-                index=False)
-    df2.to_excel(writer,
-                 sheet_name='Biovolume Species',
-                 startrow=len(df) + 1,
-                 index=False,
-                 header=False)
-    df3.to_excel(writer,
-                 sheet_name='Biovolume Species',
-                 startrow=len(df) + len(df2) + 1,
-                 index=False,
-                 header=False)
+    df_biovol_species.to_excel(writer,
+                                sheet_name='Biovolume Species',
+                                index=False)
+    df_biovol_order.to_excel(writer,
+                                sheet_name='Biovolume Species',
+                                startrow=len(df_biovol_species) + 1, # to write it below the first dataframe
+                                index=False,
+                                header=False)  # the first dataframe already has (the same) headers
+    df_biovol_class.to_excel(writer,
+                                sheet_name='Biovolume Species',
+                                startrow=len(df_biovol_species) + len(df_biovol_order) + 1,  # to write it below the two df
+                                index=False,
+                                header=False)
 #
 '----------------------------------------------------------------------------------------------------------------------'
 
-# function outputs to df (choose own path and file name!):
+# To continue the script the combined data in the Excel file is written to a df (choose correct path and file name):
 Output_dataframe = pd.read_excel('C:/GIS_Course/EGM722/Project/Project_script/Biovolume_test.xlsx',
                                  sheet_name='Biovolume Species')
 
+'----------------------------------------------------------------------------------------------------------------------'
 
 def BiovolumeToCarbon(biovolume, cells):
+    '''
+        This function converts the calculated biovolume togther with the cell concentration to carbon concent in
+        picogram carbon. Based on the species functional group one of the two equations is used (source: Menden-Deuer &
+        Lessard (2000)):
+
+        - diatoms = (0.228 * biovolume^0.811) * cell concentration
+        - other = (0.216 * biovolume^0.939) * cell concentration
+
+        Function arguments:
+        - biovolume: the column header in the output dataframe in which the calculated biovolume can be found
+        - cells: the column header in the output dataframe in which the cell concentration can be found
+
+    '''
+    # creates an empty list for the carbon results
     carbon = []
     for index, row in Output_dataframe.iterrows():
-        carbon_diatoms = (0.228 * row[biovolume] ** 0.811) * row[cells]
-        carbon_other = (0.216 * row[biovolume] ** 0.939) * row[cells]
-        Group = row['Group']
+        carbon_diatoms = (0.228 * row[biovolume] ** 0.811) * row[cells]  # equation for diatoms
+        carbon_other = (0.216 * row[biovolume] ** 0.939) * row[cells]  # equation for other functional groups
+        Group = row['Group']  # to find the species functional group and calculate the carbon content
         if Group == 'Diatom':
             carbon_output = round(carbon_diatoms, 2)
             carbon.append(carbon_output)
         else:
             carbon_output = round(carbon_other, 2)
             carbon.append(carbon_output)
-    if len(carbon) > 0:
+    if len(carbon) > 0:  # to avoid returning an empty dataframe
         df4 = pd.DataFrame({
             'Carbon (pg C)': carbon
         })
         return df4
 
 
-df4 = BiovolumeToCarbon(
+df_carbon = BiovolumeToCarbon(
     biovolume='Biovolume (ml)',
     cells='Concentration (cells L-1)')
 
 '----------------------------------------------------------------------------------------------------------------------'
+# writes the carbon data in the previous created Excel file.
 with pd.ExcelWriter('Biovolume_test.xlsx') as writer:
-    df.to_excel(writer,
-                sheet_name='Biovolume Species',
-                index=False)
-    df2.to_excel(writer,
-                 sheet_name='Biovolume Species',
-                 startrow=len(df) + 1,
-                 index=False,
-                 header=False)
-    df3.to_excel(writer,
-                 sheet_name='Biovolume Species',
-                 startrow=len(df) + len(df2) + 1,
-                 index=False,
-                 header=False)
-    df4.to_excel(writer,
-                 sheet_name='Biovolume Species',
-                 startcol=5,
-                 index=False)
+    df_biovol_species.to_excel(writer,
+                                sheet_name='Biovolume Species',
+                                index=False)
+    df_biovol_order.to_excel(writer,
+                                sheet_name='Biovolume Species',
+                                startrow=len(df_biovol_species) + 1,
+                                index=False,
+                                header=False)
+    df_biovol_class.to_excel(writer,
+                                sheet_name='Biovolume Species',
+                                startrow=len(df_biovol_species) + len(df_biovol_order) + 1,
+                                index=False,
+                                header=False)
+    df_carbon.to_excel(writer,
+                                sheet_name='Biovolume Species',
+                                startcol=5,
+                                index=False)
 
+
+# to continue the script the output data including carbon is written to a dataframe (select the correct path):
 Output_dataframe_Carbon = pd.read_excel('C:/GIS_Course/EGM722/Project/Project_script/Biovolume_test.xlsx',
                                         sheet_name='Biovolume Species')
 
 '----------------------------------------------------------------------------------------------------------------------'
-
-
 def Sum(Concentration, Biovolume, Carbon):
+    '''
+    This function calculates the sum of the cell concentration, biovolume and carbon based on the output dataframe.
+
+    Function arguments:
+    - Concentration: the column in the output dataframe where the cell concentration can be found.
+    - Biovolume: the column in the output dataframe where the biovolume can be found.
+    - Carbon: The column in the output dataframe where the carbon content can be found.
+
+    Returns a dataframe with the sum of the cell concentration, the biovolume and carbon content
+
+    '''
+    # Create empty lists to append result to
     conc = []
     biovol = []
     carb = []
+    # Sum all cell concentration data, round it to two decimals and append to the list
     sum_conc = round(sum(Concentration), 2)
     conc.append(sum_conc)
+    # Sum all biovolume data, round it to two decimals and append to the list
     sum_biovol = round(sum(Biovolume), 2)
     biovol.append(sum_biovol)
+    # Sum all carbon content data, round it to two decimals and append to the list
     sum_carb = round(sum(Carbon), 2)
     carb.append(sum_carb)
     df5 = pd.DataFrame({
@@ -576,19 +671,23 @@ def Sum(Concentration, Biovolume, Carbon):
     return df5
 
 
-df5 = Sum(
-    Concentration=Output_dataframe_Carbon['Concentration (cells L-1)'],
-    Biovolume=Output_dataframe_Carbon['Biovolume (ml)'],
-    Carbon=Output_dataframe_Carbon['Carbon (pg C)'])
+df_sum = Sum(
+    Concentration=Output_dataframe_Carbon['Concentration (cells L-1)'],  # define the column in the output dataframe for
+    # the cell concentration (output_dataframe_carbon['header']).
+    Biovolume=Output_dataframe_Carbon['Biovolume (ml)'],  # and for the biovolume
+    Carbon=Output_dataframe_Carbon['Carbon (pg C)'])  # and for the carbon content
 
 '----------------------------------------------------------------------------------------------------------------------'
-Output_dataframe_Carbon = pd.read_excel('C:/GIS_Course/EGM722/Project/Project_script/Biovolume_test.xlsx',
-                                        sheet_name='Biovolume Species')
+def SumFunctionGroups(carbon):
+    '''
+    This function calculates the sum of carbon per functional group (diatom, flagellates, dinoflagellates or others).
 
+    Functional argument:
+    - carbon: The column in the output dataframe where the carbon content can be found.
 
-# todo: check function variables below
-
-def AveragesFunctionGroups(Concentration, Biovolume, carbon):
+    Returns a data frame with the sum of carbon per functional group.
+    '''
+    # Creates lists where the found results can be appended to.
     diatom_values = []
     flagellates_values = []
     dinoflagellates_values = []
@@ -597,75 +696,89 @@ def AveragesFunctionGroups(Concentration, Biovolume, carbon):
     sum_carbon_flag = []
     sum_carbon_dino = []
     sum_other = []
-    for index, row in Output_dataframe_Carbon.iterrows():
-        carbon = row['Carbon (pg C)']
+    for index, row in Output_dataframe_Carbon.iterrows():  # iterates over the output dataframe and looks at the carbon
+        # and the group of each species.
+        carb = row[carbon]
         group = row['Group']
+        # If diatom append the carbon value to the list and calculate the sum of this list
         if group == 'Diatom':
-            diatom_values.append(carbon)
+            diatom_values.append(carb)
             sum_carbon_diatom = round(sum(diatom_values), 0)
+        # If flagellate append the carbon value to the list and calculate the sum of this list
         elif group == 'Flagellates':
-            flagellates_values.append(carbon)
+            flagellates_values.append(carb)
             sum_carbon_flag = round(sum(flagellates_values), 1)
+        # If dinoflagellate append the carbon value to the list and calculate the sum of this list
         elif group == 'Dinoflagellates':
-            dinoflagellates_values.append(carbon)
+            dinoflagellates_values.append(carb)
             sum_carbon_dino = round(sum(dinoflagellates_values), 1)
+        # All others, append the carbon value to the list and calculate the sum of this list
         else:
-            other_values.append(carbon)
+            other_values.append(carb)
             sum_other = round(sum(other_values), 1)
     df6 = pd.DataFrame({
         'Carbon Diatoms (pg C)': sum_carbon_diatom,
         'Carbon Flagellates (pg C)': sum_carbon_flag,
         'Carbon Dinoflagellates (pg C)': sum_carbon_dino,
         'Carbon Other (pg C)': sum_other},
-        index=[0])
+        index=['sum'])
     return df6
 
 
-df6 = AveragesFunctionGroups(
-    Concentration=Output_dataframe_Carbon['Concentration (cells L-1)'],
-    Biovolume=Output_dataframe_Carbon['Biovolume (ml)'],
-    carbon=Output_dataframe_Carbon['Carbon (pg C)'])
+df_sum_functional_groups = SumFunctionGroups(carbon='Carbon (pg C)')  # define the column in the output dataframe for
+# the carbon content ('header').
 
+print('Carbon calculated')
+
+'----------------------------------------------------------------------------------------------------------------------'
+# All dataframes are written in the final Excel file
 with pd.ExcelWriter('Output_data_conversion_to_carbon.xlsx') as writer:
-    df.to_excel(writer,
-                sheet_name='Biovolume Species',
-                index=False)
-    df2.to_excel(writer,
-                 sheet_name='Biovolume Species',
-                 startrow=len(df) + 1,
-                 index=False,
-                 header=False)
-    df3.to_excel(writer,
-                 sheet_name='Biovolume Species',
-                 startrow=len(df) + len(df2) + 1,
-                 index=False,
-                 header=False)
-    df4.to_excel(writer,
-                 sheet_name='Biovolume Species',
-                 startcol=5,
-                 index=False)
-    df5.to_excel(writer,
-                 sheet_name='Biovolume Species',
-                 startrow=len(df) + len(df2) + len(df3) + 1,
-                 startcol=3,
-                 index=False,
-                 header=False)
-    df6.to_excel(writer,
-                 sheet_name='Biovolume Species',
-                 startcol=7,
-                 index=True,
-                 header=True)
+    df_biovol_species.to_excel(writer,
+                                        sheet_name='Biovolume Species',
+                                        index=False)
+    df_biovol_order.to_excel(writer,
+                                        sheet_name='Biovolume Species',
+                                        startrow=len(df_biovol_species) + 1,
+                                        index=False,
+                                        header=False)
+    df_biovol_class.to_excel(writer,
+                                        sheet_name='Biovolume Species',
+                                        startrow=len(df_biovol_species) + len(df_biovol_order) + 1,
+                                        index=False,
+                                        header=False)
+    df_carbon.to_excel(writer,
+                                        sheet_name='Biovolume Species',
+                                        startcol=5,
+                                        index=False)
+    df_sum.to_excel(writer,
+                                        sheet_name='Biovolume Species',
+                                        startrow=len(df_biovol_species)+len(df_biovol_order) + len(df_biovol_class) + 1,
+                                        startcol=3,
+                                        index=False,
+                                        header=False)
+    df_sum_functional_groups.to_excel(writer,
+                                        sheet_name='Biovolume Species',
+                                        startcol=7,
+                                        index=True,
+                                        header=True)
 
-# Make workbook look nicer, create averages and graphs
 
-Final_Output = openpyxl.load_workbook(
-    'C:/GIS_Course/EGM722/Project/Project_script/Output_data_conversion_to_carbon.xlsx')
+# Calculates the amount of species returned in the output data
+outputData = len(Output_dataframe_Carbon['Species'])
+# and the amount of species missing
+missingData = InputDataAmount - outputData
+
+'----------------------------------------------------------------------------------------------------------------------'
+# Choose the right path for the final output Excel file.
+Final_Output = openpyxl.load_workbook('C:/GIS_Course/EGM722/Project/Project_script/'
+                                      'Output_data_conversion_to_carbon.xlsx')
+# and select the right sheet.
 sheet = Final_Output['Biovolume Species']
-data_range = sheet['A1': get_column_letter(sheet.max_column) + str(sheet.max_row)]
 
-# freeze headers and adjust column width and sort data
-sheet.freeze_panes = 'A2'
+# freeze headers
+sheet.freeze_panes = 'A2'  # freeze the first row
 
+# change column width to the right dimensions
 sheet.column_dimensions['A'].width = 20
 sheet.column_dimensions['B'].width = 33
 sheet.column_dimensions['C'].width = 20
@@ -677,24 +790,35 @@ sheet.column_dimensions['J'].width = 23
 sheet.column_dimensions['K'].width = 27
 sheet.column_dimensions['L'].width = 20
 
-# changing font
+# changing font for the sum of the biovolume, cell concentration and carbon content.
 fontobj1 = Font(name='Calibri', size=12, bold=True, italic=False)
-sheet['C' + str(sheet.max_row)] = 'Sum:'
-sheet['C' + str(sheet.max_row)].font = fontobj1
-sheet['D' + str(sheet.max_row)].font = fontobj1
-sheet['E' + str(sheet.max_row)].font = fontobj1
-sheet['F' + str(sheet.max_row)].font = fontobj1
+sheet['C' + str(sheet.max_row)] = 'Sum:'  # writes 'sum' in column C underneath the last data row
+sheet['C' + str(sheet.max_row)].font = fontobj1  # sum in bold
+sheet['D' + str(sheet.max_row)].font = fontobj1  # sum of cell concentration in bold
+sheet['E' + str(sheet.max_row)].font = fontobj1  # sum of biovolume in bold
+sheet['F' + str(sheet.max_row)].font = fontobj1  # sum of carbon content in bold
 
-# make averages for concentration, biovolume and carbon
+# Creating a bar chart for the sum of carbon content for the functional groups
+refObj = Reference(sheet, min_col=9, max_col=12, min_row=1, max_row=2)  # selects the reference for the data
+chartObj = BarChart()  # creates an empty bar chart
+chartObj.add_data(refObj, titles_from_data=True)  # adds the data names as series names
+chartObj.title = 'Sum carbon functional groups'  # creates a title for the bar chart
+chartObj.x_axis.title = 'Functional groups'  # creates x axis title
+chartObj.y_axis.title = 'Carbon (pg C)'  # creates y axis title
 
-refObj = Reference(sheet, min_col=9, max_col=12, min_row=1, max_row=2)
-
-chartObj = BarChart()
-chartObj.add_data(refObj, titles_from_data=True)
-chartObj.title = 'Sum carbon functional groups'
-chartObj.x_axis.title = 'Functional groups'
-chartObj.y_axis.title = 'Carbon (pg C)'
-
+# adds the chart to the sheet
 sheet.add_chart(chartObj, 'I4')
 
+# saves the final output excel file and removes the biovolume file (no longer necessary, however if you want to keep it
+# remove the remove function).
 Final_Output.save('Output_data_conversion_to_carbon.xlsx')
+os.remove('C:/GIS_Course/EGM722/Project/Project_script/Biovolume_test.xlsx')
+
+'----------------------------------------------------------------------------------------------------------------------'
+# to show that the script is finished and show the amount of species found, missing and refers to the Excel workbook to
+# be opened for the results.
+print('......')
+print(f"InputData processing finished. From {InputDataAmount} entries, {outputData} are returned."
+      f"\nNumber of species not converted to carbon: {missingData}."
+      f"\nOpen Output_data_conversion_to_carbon.xlsx to see the results.")
+
