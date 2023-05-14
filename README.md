@@ -5,6 +5,10 @@ Project for EGM722 - Microalgae cell concentration to carbon content
 This Python script is designed to convert data on cell concentration of microalgae (cells per liter) to carbon content (picogram carbon) and generate the output in a Microsoft Excel Workbook. The script makes use of the HELCOM PEG Biovolume list (Olenina et al. 2006) and its annually updated annex  (version 2020), and the Species_Order database (via algaebase and WoRMS) to create dictionaries in which the biovolume of a singular cell for the input species is found. 
 By using the provided cell concentration, the script calculates the total biovolume for each input species based on the dictionaries. With the calculated biovolume, the script then determines the amount of carbon content for each input species.
 
+Important
+-----------
+This script provides an estimation or guideline for the carbon content and may not include all microalgae species. The dictionaries used in the script will be refined in later versions to improve accuracy.
+
 
 Set-up and installation
 ------------
