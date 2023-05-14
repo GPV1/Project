@@ -22,7 +22,7 @@ The main dependencies needed for the conda environment are:
 -	pandas (version 2.0.0)
 
 The environment file is provided in this repository (https://github.com/GPV1/Project/tree/main). The dependencies can be installed using the command ‘pip install’ or by adding the environment via Anaconda. 
-In the folder project script the conversion script can be found (cell_concentration_to_carbon_content.py). To run the code, make sure to provide the correct paths for the databases and the input data. Additionally, fill in the necessary function arguments within the script (see method).
+In the folder project script the conversion script can be found (cell_concentration_to_carbon_content.py). To run the code, make sure to provide the correct paths for the databases and the input data (line 9, 10 and 11). Additionally, fill in the necessary function arguments within the script (see method).
 
 The HELCOM PEG Biovolume list can be retrieved from this manual (click on manual https://helcom.fi/wp-content/uploads/2020/01/HELCOM-Guidelines-for-monitoring-of-phytoplankton-species-composition-abundance-and-biomass.pdf and click on the link on page eleven (2.3.3.4.2 Biovolume calculation), the direct link https://www.ices.dk/data/Documents/ENV/PEG_BVOL.zip does unfortunately not work). Two files are downloaded, a Word document with information about the HELCOM PEG Biovolume list and the list itself (PEG_BVOL2022, Excel workbook). 
 
