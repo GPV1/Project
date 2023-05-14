@@ -5,8 +5,5 @@ channels:
 dependencies:
   - python>3.5
   - geopandas
-  - cartopy
-  - notebook
-  - rasterio
-  - pyepsg
-  - folium
+  - openpyxl
+  - os
