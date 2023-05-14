@@ -4,8 +4,8 @@ from openpyxl.styles import Font
 from openpyxl.chart import BarChart, Reference
 import os
 
-# import datafiles and sheetname. Necessary: database files PEG, Species order and input data. Provide the correct path
-# to the datafiles in the repository.
+# import datafiles and sheetname. Necessary: database files PEG (dfBiovolume), Species order and input data (e.g.
+# Data_201_GPV). Provide the correct path to the datafiles in your repository and needed sheet name.
 dfBiovolume = pd.read_excel('C:/GIS_Course/EGM722/Project/Data_files/PEG_BVOL2019_PJ.xlsx', sheet_name='Biovolume file')
 dfSpeciesOrder = pd.read_excel('C:/GIS_Course/EGM722/Project/Data_files/Species_order_GPV.xlsx', sheet_name='Sheet1')
 InputData = pd.read_excel('C:/GIS_Course/EGM722/Project/Data_files/Data_2018_GPV.xlsx', sheet_name='Sheet1')
@@ -92,6 +92,7 @@ for index, row in dfBiovolume.iterrows():
         else:  # if the species name is already written in the dictionary, add the found biovolume values
             species_Biovolume_dict[searchFor].append(row_info[25])
 
+# print(species_Biovolume_dict)
 
 '----------------------------------------------------------------------------------------------------------------------'
 
@@ -107,6 +108,8 @@ species_avg_Biovolume_dict = {}
 for searchFor, values_list in species_Biovolume_dict.items():  # goes trough the species_BV_dict made in previous step
     avg_BV = round(sum(values_list) / len(values_list), 4)
     species_avg_Biovolume_dict[searchFor] = avg_BV  # appends the species name with the averaged biovolume
+
+# print(species_avg_Biovolume_dict)
 
 '----------------------------------------------------------------------------------------------------------------------'
 
@@ -163,6 +166,7 @@ for order, biovolume in Order_Species_avg_Biovolume_dict_unadapted.items():  # a
         order_key = order
     Order_Species_avg_Biovolume_dict[order_key] = biovolume
 
+# print(Order_Species_avg_Biovolume_dict)
 
 '----------------------------------------------------------------------------------------------------------------------'
 
@@ -179,6 +183,8 @@ for order, species in Order_Species_avg_Biovolume_dict.items():
     values_list = species.values()  # create a list of biovolume values for all species in the order
     avg_ord_BV = round(sum(values_list) / len(values_list), 4)
     Order_avg_Biovolume_dict[order] = avg_ord_BV  # store the average biovolume in the new dictionary
+
+# print(Order_avg_Biovolume_dict)
 
 '----------------------------------------------------------------------------------------------------------------------'
 
@@ -235,6 +241,8 @@ for order, biovolume in Order_avg_Biovolume_dict.items():
     except KeyError:  # since in the order dictionary there are some undefined orders
         continue
 
+# print(Class_Order_dict)
+
 '----------------------------------------------------------------------------------------------------------------------'
 Class_avg_Biovolume = {}
 ''' 7. Creates a dictionary in which the biovolume is averaged per class.
@@ -253,6 +261,7 @@ for clss, spec in Class_Species_avg_Biovolume.items():
     Class_avg_Biovolume[clss] = avg_biovolume
 
 # print(Class_avg_Biovolume)
+
 '----------------------------------------------------------------------------------------------------------------------'
 
 Group_Order_Species_avg_Biovolume_dict = {}
@@ -287,6 +296,7 @@ for group, order in Group_Order_Species_avg_Biovolume_dict.items():
             Group_Order_Species_avg_Biovolume_dict[group][ord_name] = spec
 
 # print(Group_Order_Species_avg_Biovolume_dict)
+
 '----------------------------------------------------------------------------------------------------------------------'
 ''' (To avoid scrolling back up) Overview of all dictonaries and their functions:
 
@@ -562,15 +572,14 @@ with pd.ExcelWriter('Biovolume_test.xlsx') as writer:
                                 header=False)  # the first dataframe already has (the same) headers
     df_biovol_class.to_excel(writer,
                                 sheet_name='Biovolume Species',
-                                startrow=len(df_biovol_species) + len(df_biovol_order) + 1,  # to write it below the two df
+                                startrow=len(df_biovol_species) + len(df_biovol_order) + 1,  # to write it below the 2 df
                                 index=False,
                                 header=False)
 #
 '----------------------------------------------------------------------------------------------------------------------'
 
-# To continue the script the combined data in the Excel file is written to a df (choose correct path and file name):
-Output_dataframe = pd.read_excel('C:/GIS_Course/EGM722/Project/Project_script/Biovolume_test.xlsx',
-                                 sheet_name='Biovolume Species')
+# To continue the script the combined data written in the Excel file is written to a df:
+Output_dataframe = pd.read_excel('Biovolume_test.xlsx', sheet_name='Biovolume Species')
 
 '----------------------------------------------------------------------------------------------------------------------'
 
@@ -633,9 +642,8 @@ with pd.ExcelWriter('Biovolume_test.xlsx') as writer:
                                 index=False)
 
 
-# to continue the script the output data including carbon is written to a dataframe (select the correct path):
-Output_dataframe_Carbon = pd.read_excel('C:/GIS_Course/EGM722/Project/Project_script/Biovolume_test.xlsx',
-                                        sheet_name='Biovolume Species')
+# to continue the script the output data including carbon is written to a dataframe:
+Output_dataframe_Carbon = pd.read_excel('Biovolume_test.xlsx', sheet_name='Biovolume Species')
 
 '----------------------------------------------------------------------------------------------------------------------'
 def Sum(Concentration, Biovolume, Carbon):
@@ -725,9 +733,10 @@ def SumFunctionGroups(carbon):
     return df6
 
 
-df_sum_functional_groups = SumFunctionGroups(carbon='Carbon (pg C)')  # define the column in the output dataframe for
-# the carbon content ('header').
+df_sum_functional_groups = SumFunctionGroups(
+    carbon='Carbon (pg C)')  # define the column in the output dataframe for the carbon content ('header').
 
+# to show that the carbon is calculated
 print('Carbon calculated')
 
 '----------------------------------------------------------------------------------------------------------------------'
@@ -769,10 +778,8 @@ outputData = len(Output_dataframe_Carbon['Species'])
 missingData = InputDataAmount - outputData
 
 '----------------------------------------------------------------------------------------------------------------------'
-# Choose the right path for the final output Excel file.
-Final_Output = openpyxl.load_workbook('C:/GIS_Course/EGM722/Project/Project_script/'
-                                      'Output_data_conversion_to_carbon.xlsx')
-# and select the right sheet.
+# Excel file is opened and sheet is selected to adjust layout and add a graph
+Final_Output = openpyxl.load_workbook('Output_data_conversion_to_carbon.xlsx')
 sheet = Final_Output['Biovolume Species']
 
 # freeze headers
@@ -812,7 +819,7 @@ sheet.add_chart(chartObj, 'I4')
 # saves the final output excel file and removes the biovolume file (no longer necessary, however if you want to keep it
 # remove the remove function).
 Final_Output.save('Output_data_conversion_to_carbon.xlsx')
-os.remove('C:/GIS_Course/EGM722/Project/Project_script/Biovolume_test.xlsx')
+os.remove('Biovolume_test.xlsx')
 
 '----------------------------------------------------------------------------------------------------------------------'
 # to show that the script is finished and show the amount of species found, missing and refers to the Excel workbook to
