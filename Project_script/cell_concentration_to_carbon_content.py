@@ -1,14 +1,15 @@
 import pandas as pd
 import openpyxl
 from openpyxl.styles import Font
-from openpyxl.chart import BarChart, Reference
+from openpyxl.chart import BarChart, Reference, LineChart
+from openpyxl.chart.axis import DateAxis
 import os
 
 # import datafiles and sheetname. Necessary: database files PEG (dfBiovolume), Species order and input data (e.g.
 # Data_201_GPV). Provide the correct path to the datafiles in your repository and needed sheet name.
 dfBiovolume = pd.read_excel('C:/GIS_Course/EGM722/Project/Data_files/PEG_BVOL2019_PJ.xlsx', sheet_name='Biovolume file')
 dfSpeciesOrder = pd.read_excel('C:/GIS_Course/EGM722/Project/Data_files/Species_order_GPV.xlsx', sheet_name='Sheet1')
-InputData = pd.read_excel('C:/GIS_Course/EGM722/Project/Data_files/Data_2018_GPV.xlsx', sheet_name='Sheet1')
+InputData = pd.read_excel('C:/GIS_Course/EGM722/Project/Data_files/test_data.xlsx', sheet_name='data')
 
 # Defines the columns in the database for the taxonomy groups
 Divisions = dfBiovolume['Division']
@@ -20,12 +21,19 @@ Species_other = dfSpeciesOrder['spec_name'].str.replace('_', ' ')  # Species nam
 Species_other_order = dfSpeciesOrder['order']
 Species_other_group = dfSpeciesOrder['group']
 
+# Define the column in the input data where the species names cane be found!
+InputDataSpecies = InputData['biotaxon']
+InputDataDatum = InputData['datum']
+InputDataCellValue = InputData['waarde']
+
 # To avoid Key errors and lower return of species in the output, certain signs or characters are removed.
-InputData['spec_name'] = InputData['spec_name'].str.replace('.', '')
-InputData['spec_name'] = InputData['spec_name'].str.replace('<', '')
-InputData['spec_name'] = InputData['spec_name'].str.replace('>', '')
-InputData['spec_name'] = InputData['spec_name'].str.replace('~', '')
-InputDataAmount = len(InputData['spec_name'])
+InputDataSpecies = InputDataSpecies.str.replace('.', '')
+InputDataSpecies = InputDataSpecies.str.replace('<', '')
+InputDataSpecies = InputDataSpecies.str.replace('>', '')
+InputDataSpecies = InputDataSpecies.str.replace('~', '')
+
+# To calculate the amount of input species from the input dataset
+InputDataAmount = len(InputDataSpecies)
 
 # to let the user know that the input data is being processed.
 print(f"InputData being processed, the amount of species to search for: {InputDataAmount}")
@@ -393,11 +401,11 @@ def BiovolumeSpeciesLevel(ID_col_name, ID_data, Species_col_name, Species_data, 
 df_biovol_species = BiovolumeSpeciesLevel( # define the column name and data of the dataset (InputData) to be converted:
 
     ID_col_name='ID',  # If there is an ID for the sample, name this column for in the output (string).
-    ID_data=InputData['sample_ID'],  # define in the input data in which column (str(header)) the ID data can be found.
+    ID_data=InputDataDatum,  # define in the input data in which column (str(header)) the ID data can be found.
     Species_col_name='Species',  # name the column header for species data in the output.
-    Species_data=InputData['spec_name'],  # define in the input data in which column the species data can be found.
+    Species_data=InputDataSpecies,  # define in the input data in which column the species data can be found.
     Conc_col_name='Concentration (cells L-1)',  # name the column header for concentration data in the output.
-    Conc_data=InputData['conc_cells_per_L']  # define in the input data in which column the conc. data can be found.
+    Conc_data=InputDataCellValue  # define in the input data in which column the conc. data can be found.
 )
 
 
@@ -466,11 +474,11 @@ def BiovolumeOrderLevel(ID_col_name, ID_data, Species_col_name, Species_data, Co
 df_biovol_order = BiovolumeOrderLevel(  # define the column name and data of the dataset (InputData) to be converted:
 
     ID_col_name='ID',  # If there is an ID for the sample, name this column for in the output.
-    ID_data=InputData['sample_ID'],  # define in the input data in which column (str(header)) the ID data can be found.
+    ID_data=InputDataDatum,  # define in the input data in which column (str(header)) the ID data can be found.
     Species_col_name='Species',  # name the column header for species data in the output.
-    Species_data=InputData['spec_name'],  # define in the input data in which column the species data can be found.
+    Species_data=InputDataSpecies,  # define in the input data in which column the species data can be found.
     Conc_col_name='Concentration (cells L-1)',  # name the column header for concentration data in the output.
-    Conc_data=InputData['conc_cells_per_L']  # define in the input data in which column the conc. data can be found.
+    Conc_data=InputDataCellValue  # define in the input data in which column the conc. data can be found.
 )
 '----------------------------------------------------------------------------------------------------------------------'
 
@@ -524,6 +532,7 @@ def BiovolumeClassLevel(ID_col_name, ID_data, Species_col_name, Species_data, Co
                                     if o == ord:
                                         group_bcl.append(group)
                             break
+                break
     if len(result_class) > 0:  # to avoid printing an empty dataframe in case something went wrong
         df3 = pd.DataFrame({
             ID_col_name: sample_id,
@@ -538,11 +547,11 @@ def BiovolumeClassLevel(ID_col_name, ID_data, Species_col_name, Species_data, Co
 df_biovol_class = BiovolumeClassLevel(  # define the column name and data of the dataset (InputData) to be converted:
 
     ID_col_name='ID',  # If there is an ID for the sample, name this column for in the output.
-    ID_data=InputData['sample_ID'],  # define in the input data in which column (str(header)) the ID data can be found.
+    ID_data=InputDataDatum,  # define in the input data in which column (str(header)) the ID data can be found.
     Species_col_name='Species',  # name the column header for species data in the output.
-    Species_data=InputData['spec_name'],  # define in the input data in which column the species data can be found.
+    Species_data=InputDataSpecies,  # define in the input data in which column the species data can be found.
     Conc_col_name='Concentration (cells L-1)',  # name the column header for concentration data in the output.
-    Conc_data=InputData['conc_cells_per_L']  # define in the input data in which column the conc. data can be found.
+    Conc_data=InputDataCellValue  # define in the input data in which column the conc. data can be found.
 )
 
 
@@ -700,41 +709,63 @@ def SumFunctionGroups(carbon):
     flagellates_values = []
     dinoflagellates_values = []
     other_values = []
+    Phaeocystis_values = []
     sum_carbon_diatom = []
     sum_carbon_flag = []
     sum_carbon_dino = []
     sum_other = []
+    sum_Phaeocystis = []
     for index, row in Output_dataframe_Carbon.iterrows():  # iterates over the output dataframe and looks at the carbon
         # and the group of each species.
         carb = row[carbon]
         group = row['Group']
-        # If diatom append the carbon value to the list and calculate the sum of this list
-        if group == 'Diatom':
-            diatom_values.append(carb)
-            sum_carbon_diatom = round(sum(diatom_values), 0)
-        # If flagellate append the carbon value to the list and calculate the sum of this list
-        elif group == 'Flagellates':
-            flagellates_values.append(carb)
-            sum_carbon_flag = round(sum(flagellates_values), 1)
-        # If dinoflagellate append the carbon value to the list and calculate the sum of this list
-        elif group == 'Dinoflagellates':
-            dinoflagellates_values.append(carb)
-            sum_carbon_dino = round(sum(dinoflagellates_values), 1)
-        # All others, append the carbon value to the list and calculate the sum of this list
+        species = row['Species']
+        if species == 'Phaeocystis':
+            Phaeocystis_values.append(carb)
+            sum_Phaeocystis = round(sum(Phaeocystis_values), 0)
         else:
-            other_values.append(carb)
-            sum_other = round(sum(other_values), 1)
+            # If diatom append the carbon value to the list and calculate the sum of this list
+            if group == 'Diatom':
+                diatom_values.append(carb)
+                sum_carbon_diatom = round(sum(diatom_values), 0)
+            # If flagellate append the carbon value to the list and calculate the sum of this list
+            elif group == 'Flagellates':
+                flagellates_values.append(carb)
+                sum_carbon_flag = round(sum(flagellates_values), 1)
+            # If dinoflagellate append the carbon value to the list and calculate the sum of this list
+            elif group == 'Dinoflagellates':
+                dinoflagellates_values.append(carb)
+                sum_carbon_dino = round(sum(dinoflagellates_values), 1)
+            # All others, append the carbon value to the list and calculate the sum of this list
+            else:
+                other_values.append(carb)
+                sum_other = round(sum(other_values), 1)
+
     df6 = pd.DataFrame({
         'Carbon Diatoms (pg C)': sum_carbon_diatom,
         'Carbon Flagellates (pg C)': sum_carbon_flag,
         'Carbon Dinoflagellates (pg C)': sum_carbon_dino,
-        'Carbon Other (pg C)': sum_other},
+        'Carbon Other (pg C)': sum_other,
+        'Phaeocystis (pg C)': sum_Phaeocystis},
         index=['sum'])
     return df6
 
 
 df_sum_functional_groups = SumFunctionGroups(
     carbon='Carbon (pg C)')  # define the column in the output dataframe for the carbon content ('header').
+
+'----------------------------------------------------------------------------------------------------------------------'
+# Creates the sum per sample and makes a new sheet in the excel file
+output = openpyxl.load_workbook('Output_data_conversion_to_carbon.xlsx')
+output.create_sheet('Carbon per sample')
+
+data = pd.read_excel('Output_data_conversion_to_carbon.xlsx', sheet_name='Biovolume Species')
+#todo fix this here, date grouping..
+sample_carbon = data.groupby('ID')['Carbon (pg C)'].sum()
+sample_date = data.groupby('ID')
+print(sample_date)
+# print(df_carbon_sample)
+'----------------------------------------------------------------------------------------------------------------------'
 
 # to show that the carbon is calculated
 print('Carbon calculated')
@@ -770,6 +801,16 @@ with pd.ExcelWriter('Output_data_conversion_to_carbon.xlsx') as writer:
                                         startcol=7,
                                         index=True,
                                         header=True)
+    sample_carbon.to_excel(writer,
+                                        sheet_name='Carbon per sample',
+                                        startcol=1,
+                                        index=False,
+                                        header=True)
+    sample_date.to_excel(writer,
+                                        sheet_name='Carbon per sample',
+                                        index=False,
+                                        header=True
+                         )
 
 
 # Calculates the amount of species returned in the output data
@@ -781,9 +822,11 @@ missingData = InputDataAmount - outputData
 # Excel file is opened and sheet is selected to adjust layout and add a graph
 Final_Output = openpyxl.load_workbook('Output_data_conversion_to_carbon.xlsx')
 sheet = Final_Output['Biovolume Species']
+sheet2 = Final_Output['Carbon per sample']
 
 # freeze headers
 sheet.freeze_panes = 'A2'  # freeze the first row
+sheet2.freeze_panes = 'A2'
 
 # change column width to the right dimensions
 sheet.column_dimensions['A'].width = 20
@@ -796,25 +839,53 @@ sheet.column_dimensions['I'].width = 20
 sheet.column_dimensions['J'].width = 23
 sheet.column_dimensions['K'].width = 27
 sheet.column_dimensions['L'].width = 20
+sheet.column_dimensions['M'].width = 20
+sheet2.column_dimensions['A'].width = 20
+sheet2.column_dimensions['B'].width = 20
 
 # changing font for the sum of the biovolume, cell concentration and carbon content.
 fontobj1 = Font(name='Calibri', size=12, bold=True, italic=False)
+fontobj2 = Font(name='Calibri', size=11, bold=False, italic=False)
 sheet['C' + str(sheet.max_row)] = 'Sum:'  # writes 'sum' in column C underneath the last data row
 sheet['C' + str(sheet.max_row)].font = fontobj1  # sum in bold
 sheet['D' + str(sheet.max_row)].font = fontobj1  # sum of cell concentration in bold
 sheet['E' + str(sheet.max_row)].font = fontobj1  # sum of biovolume in bold
 sheet['F' + str(sheet.max_row)].font = fontobj1  # sum of carbon content in bold
+for cell in sheet2['A']:  # to remove the boldness created by the index function
+    cell.font = fontobj2
+sheet2['A' + str(1)].font = fontobj1  # and make the header bold again
+
 
 # Creating a bar chart for the sum of carbon content for the functional groups
-refObj = Reference(sheet, min_col=9, max_col=12, min_row=1, max_row=2)  # selects the reference for the data
-chartObj = BarChart()  # creates an empty bar chart
-chartObj.add_data(refObj, titles_from_data=True)  # adds the data names as series names
-chartObj.title = 'Sum carbon functional groups'  # creates a title for the bar chart
-chartObj.x_axis.title = 'Functional groups'  # creates x axis title
-chartObj.y_axis.title = 'Carbon (pg C)'  # creates y axis title
+refObj_func_group = Reference(sheet, min_col=9, max_col=12, min_row=1, max_row=2)  # selects the reference for the data
+chartObj_func_group = BarChart()  # creates an empty bar chart
+chartObj_func_group.add_data(refObj_func_group, titles_from_data=True)  # adds the data names as series names
+chartObj_func_group.title = 'Sum carbon functional groups'  # creates a title for the bar chart
+chartObj_func_group.x_axis.title = 'Functional groups'  # creates x axis title
+chartObj_func_group.y_axis.title = 'Carbon (pg C)'  # creates y axis title
 
-# adds the chart to the sheet
-sheet.add_chart(chartObj, 'I4')
+# Creating a separate bar chart for Phaeocystis carbon content (since these blooms are very abundant in some datasets)
+refObj_Phaeocys = Reference(sheet, min_col=13, max_col=13, min_row=1, max_row=2)  # selects the reference for the data
+chartObj_Phaeocys = BarChart()  # creates an empty bar chart
+chartObj_Phaeocys.add_data(refObj_Phaeocys, titles_from_data=True)  # adds the data names as series names
+chartObj_Phaeocys.title = 'Sum carbon Phaeocystis'  # creates a title for the bar chart
+chartObj_Phaeocys.x_axis.title = 'Phaeocystis'  # creates x axis title
+chartObj_Phaeocys.y_axis.title = 'Carbon (pg C)'  # creates y axis title
+
+# Creating a line chart for the carbon per sample over time
+refObj_CarbSample = Reference(sheet2, min_col=2, max_col=2, min_row=1, max_row=str(sheet2.max_row))
+# refObj_Date = Reference(sheet2, min_col=1, max_col=1, min_row=1, max_row=str(sheet2.max_row))
+ChartObj_CarbSample = LineChart()
+ChartObj_CarbSample.add_data(refObj_CarbSample, titles_from_data=True)
+ChartObj_CarbSample.title = 'Sum carbon content per sample'
+ChartObj_CarbSample.x_axis.number_format = 'mmm-yyyy'
+ChartObj_CarbSample.x_axis.title = 'Date'
+ChartObj_CarbSample.y_axis.title = 'Carbon (pg C)'
+
+# adds the charts to the sheet
+sheet.add_chart(chartObj_func_group, 'I4')
+sheet.add_chart(chartObj_Phaeocys, 'M4')
+sheet2.add_chart(ChartObj_CarbSample, 'D2')
 
 # saves the final output excel file and removes the biovolume file (no longer necessary, however if you want to keep it
 # remove the remove function).
@@ -828,4 +899,12 @@ print('......')
 print(f"InputData processing finished. From {InputDataAmount} entries, {outputData} are returned."
       f"\nNumber of species not converted to carbon: {missingData}."
       f"\nOpen Output_data_conversion_to_carbon.xlsx to see the results.")
+
+'----------------------------------------------------------------------------------------------------------------------'
+
+
+
+
+
+
 
